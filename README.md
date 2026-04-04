@@ -1,6 +1,6 @@
 # kubectl-audit
 
-[`kubectl-audit`](https://github.com/codenio/kubectl-audit) is a [`kubectl` plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/) that lists Kubernetes resources failing common health checks: unhealthy or crash-prone pods (including high container restarts), unhealthy nodes, unbound volumes, failed jobs, and suspended cron jobs. Output uses the same printers as `kubectl get` (default table, `-o wide`, JSON, YAML, custom columns, Go templates, and more).
+`[kubectl-audit](https://github.com/codenio/kubectl-audit)` is a `[kubectl` plugin]([https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/)) that lists Kubernetes resources failing common health checks: unhealthy or crash-prone pods (including high container restarts), unhealthy nodes, unbound volumes, failed jobs, and suspended cron jobs. Output uses the same printers as `kubectl get` (default table, `-o wide`, JSON, YAML, custom columns, Go templates, and more).
 
 ## Contents
 
@@ -66,14 +66,16 @@ Standard `kubectl` config applies: current context, `KUBECONFIG`, `-n` / `--name
 
 ## Resources and filters
 
-| Resource    | Aliases | What is listed |
-| ----------- | ------- | -------------- |
-| `pods`      | `pod`, `po` | Pods that need attention: phase is not `Running`, any regular container is not `Ready`, **or** any regular or init container has `RestartCount` ≥ **5** (threshold is fixed in code). `Succeeded` / `Completed` job pods are included because they are not in a running steady state. |
-| `nodes`     | `node`, `no` | Nodes that are `NotReady` or have `SchedulingDisabled`. |
-| `pvc`       | `pvcs`, `persistentvolumeclaim`, `persistentvolumeclaims` | PVCs not in `Bound` phase. |
-| `pv`        | `pvs`, `persistentvolume`, `persistentvolumes` | PVs not in `Bound` phase. |
-| `jobs`      | `job` | Failed jobs (including backoff / deadline failures). |
-| `cronjobs`  | `cronjob`, `cj` | Suspended cron jobs. |
+
+| Resource   | Aliases                                                   | What is listed                                                                                                                                                                                                                                                                        |
+| ---------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pods`     | `pod`, `po`                                               | Pods that need attention: phase is not `Running`, any regular container is not `Ready`, **or** any regular or init container has `RestartCount` ≥ **5** (threshold is fixed in code). `Succeeded` / `Completed` job pods are included because they are not in a running steady state. |
+| `nodes`    | `node`, `no`                                              | Nodes that are `NotReady` or have `SchedulingDisabled`.                                                                                                                                                                                                                               |
+| `pvc`      | `pvcs`, `persistentvolumeclaim`, `persistentvolumeclaims` | PVCs not in `Bound` phase.                                                                                                                                                                                                                                                            |
+| `pv`       | `pvs`, `persistentvolume`, `persistentvolumes`            | PVs not in `Bound` phase.                                                                                                                                                                                                                                                             |
+| `jobs`     | `job`                                                     | Failed jobs (including backoff / deadline failures).                                                                                                                                                                                                                                  |
+| `cronjobs` | `cronjob`, `cj`                                           | Suspended cron jobs.                                                                                                                                                                                                                                                                  |
+
 
 **Common flags**
 
@@ -86,7 +88,7 @@ Further notes live in [doc/USAGE.md](doc/USAGE.md).
 
 ## Output formats
 
-[`kubectl get`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/)-style `-o` flags are supported, for example:
+`[kubectl get](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/)`-style `-o` flags are supported, for example:
 
 ```bash
 kubectl audit pods -o wide
@@ -98,17 +100,18 @@ kubectl audit jobs -o custom-columns=NAME:.metadata.name
 ## Examples
 
 ```bash
-# Pods in the current namespace (default table)
+# Pods: current context default namespace
 kubectl audit pods
 
-# Pods cluster-wide (namespace column when listing all namespaces)
-kubectl audit po -A
+# Pods: single explicit namespace (no NAMESPACE column in the default table, same as kubectl get pods)
+kubectl audit pods -n ns-prod
 
-# Specific namespace
-kubectl audit pods -n tester
+# Pods: all namespaces (adds a NAMESPACE column; same idea as kubectl get pods -A)
+kubectl audit pods -A
+kubectl audit po --all-namespaces
 
-# Label filter
-kubectl audit pods -A -l app=nginx
+# Pods: label filter with all namespaces
+kubectl audit pods -A -l app=web
 
 # PVC / PV
 kubectl audit pvc -A
@@ -122,76 +125,111 @@ kubectl audit cj -A
 
 ### Sample output
 
-For default and wide output, a **summary** is printed first, then the same table layout as `kubectl get` (including the **RESTARTS** column for pods).
+For default and wide output, stdout matches this layout: two `-------------------------------------------------------` lines (55 hyphens, same as the plugin), the `**{Kind} Audit summary: total = … benign = … attention = …**` line, `**{Kind} that requires attention**`, then the same table as `kubectl get` (including **RESTARTS** for pods). On a **terminal (TTY)**, there is no extra blank line between the summary line and the second rule; when stdout is **piped or redirected**, the plugin inserts one blank line after the summary line before the second rule.
 
 - **total** — resources in scope (full list before the audit filter).
 - **benign** — resources that pass the audit’s “OK” bar for that kind (for **pods**: `Running`, every regular container `Ready`, and no regular or init container has `RestartCount` of 5 or more).
-- **attention** — rows in the filtered result (same as the table below the summary).
+- **attention** — rows in the filtered result (same as the table).
 
-If the table is empty, **stderr** states either that nothing of that kind exists in the namespace (or cluster scope), or that **no resources require attention** (resources exist but none matched the audit). **Stdout** still shows the summary line in that case.
+If the table is empty, **stderr** explains either that nothing of that kind exists in scope or that nothing requires attention; **stdout** still prints the summary block.
 
-Names and namespaces below are **illustrative and masked**.
+Names and namespaces below are **illustrative and masked**; spacing is aligned like typical `kubectl get` output.
 
-**Pods** (`kubectl audit pods -A`)
+**Pods — single namespace**
 
-```text
-Pod Audit summary: total = 2000 benign = 1996 attention = 4
-
-NAMESPACE     NAME                                   READY   STATUS             RESTARTS   AGE
-app-demo      web-frontend-7fb2c9-0                   0/1     Pending            0          2m
-app-demo      api-rolling-xyz                         1/1     Running            12         1d
-batch-demo    nightly-sync-abc12                      0/1     Completed          0          88m
-data-demo     indexer-sidecar-xyz                     0/1     Completed          0          17m
+```bash
+$ kubectl audit pods # kubectl audit pods -n ns-prod
+-------------------------------------------------------
+Pod Audit summary: total = 9 benign = 3 attention = 6
+-------------------------------------------------------
+Pod that requires attention
+NAME                                            READY   STATUS             RESTARTS   AGE
+workload-a-dep-54b6948c9c-pqx12                 0/1     ImagePullBackOff   0          8h
+workload-a-dep-785b496f5d-rst34                 0/1     ImagePullBackOff   0          11h
+svc-b-dep-6c87c74674-uvw56                      0/1     ImagePullBackOff   0          3h55m
+svc-b-dep-9f6d7b5cc-xyz99                       0/1     ImagePullBackOff   0          12h
+sidecar-c-dep-9c5c948dd-abccd                   0/1     ImagePullBackOff   0          18h
+sidecar-c-dep-c45d7c6c5-efghi                   0/1     ImagePullBackOff   0          8h
 ```
 
-*(The Running row is listed because restarts reached the attention threshold; Pending and Completed rows are non-steady-state phases.)*
+**Pods — all namespaces**
 
-**Nodes** (`kubectl audit nodes`)
+```bash
+$ kubectl audit pods -A
+-------------------------------------------------------
+Pod Audit summary: total = 120 benign = 114 attention = 6
+-------------------------------------------------------
+Pod that requires attention
+NAMESPACE      NAME                                            READY   STATUS             RESTARTS   AGE
+ns-team-a      workload-dep-5f7677d8c-pqx12                    0/1     ImagePullBackOff   0          8h
+ns-team-a      workload-dep-6a8b9c0d-rst34                     0/1     ImagePullBackOff   0          11h
+ns-team-b      indexer-dep-7c8d9e0f-uvw56                      0/1     ImagePullBackOff   0          3h55m
+ns-shared      sidecar-dep-8b9c0d1e-xyz78                      0/1     ErrImagePull       0          45m
+ns-shared      batch-harness-dep-9c0d1e2f-ab901                1/1     Running            6          4h
+ns-monitoring  obs-collector-dep-0d1e2f3g-cd234                1/1     Running            18         2d
+```
 
-```text
+*(The `Running` rows are listed when `RestartCount` reaches the attention threshold; other rows are not in a healthy steady state.)*
+
+**Nodes**
+
+```bash
+$ kubectl audit nodes
+-------------------------------------------------------
 Node Audit summary: total = 53 benign = 51 attention = 2
-
+-------------------------------------------------------
+Node that requires attention
 NAME               STATUS     ROLES    AGE
 node-worker-b02    NotReady   worker   40d
 node-worker-d04    NotReady   worker   30d
 ```
 
-*(Listed nodes are `NotReady` or cordoned `SchedulingDisabled`; benign counts Ready, schedulable nodes.)*
+**Persistent volumes**
 
-**Persistent volumes** (`kubectl audit pv`)
-
-```text
-PersistentVolume Audit summary: total = 120 benign = 119 attention = 1
-
+```bash
+$ kubectl audit pv
+-------------------------------------------------------
+PersistentVolume Audit summary: total = 12 benign = 11 attention = 1
+-------------------------------------------------------
+PersistentVolume that requires attention
 NAME              CAPACITY   ACCESS MODES   STATUS      CLAIM
 pv-archive-001    500Gi      RWO            Released    demo-ns/pvc-old-claim
 ```
 
-**Persistent volume claims** (`kubectl audit pvc -A`)
+**Persistent volume claims**
 
-```text
+```bash
+$ kubectl audit pvc -A
+-------------------------------------------------------
 PersistentVolumeClaim Audit summary: total = 45 benign = 43 attention = 2
-
+-------------------------------------------------------
+PersistentVolumeClaim that requires attention
 NAMESPACE    NAME              STATUS    VOLUME
 app-demo     logs-claim-01     Pending
 data-demo    backup-claim-02   Lost
 ```
 
-**Jobs** (`kubectl audit jobs -A`)
+**Jobs**
 
-```text
+```bash
+$ kubectl audit jobs -A
+-------------------------------------------------------
 Job Audit summary: total = 28 benign = 26 attention = 2
-
+-------------------------------------------------------
+Job that requires attention
 NAMESPACE    NAME               COMPLETIONS   DURATION   AGE
 batch-demo   daily-import       0/1           5m         5m
 batch-demo   retry-migrate      0/1           1h         1h
 ```
 
-**CronJobs** (`kubectl audit cronjobs -A`)
+**CronJobs**
 
-```text
+``bash
+$ kubectl audit cronjobs -A
+-------------------------------------------------------
 CronJob Audit summary: total = 15 benign = 13 attention = 2
-
+-------------------------------------------------------
+CronJob that requires attention
 NAMESPACE   NAME               SCHEDULE      SUSPEND   ACTIVE
 ops-demo    pause-backup       0 2 * * *     True      0
 ops-demo    hold-reports       15 * * * *    True      0
