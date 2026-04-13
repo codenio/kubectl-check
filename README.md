@@ -1,9 +1,14 @@
 # kubectl-audit
 
-[`kubectl-audit`](https://github.com/codenio/kubectl-audit) is a [`kubectl` plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/) that lists Kubernetes resources failing common health checks: unhealthy or crash-prone **pods** (including high container restarts), **containers** (per-container view derived from pods), unhealthy **nodes**, unbound **volumes**, failed **jobs**, and suspended **cron jobs**. For most kinds, output uses the same printers as `kubectl get` (default table, `-o wide`, JSON, YAML, custom columns, Go templates, and more). The **containers** subcommand uses a dedicated table and supports `-o json`, `-o yaml`, `-o name`, default table, and `-o wide` (see [Output formats](#output-formats)).
+**Kubernetes `kubectl` plugin for cluster health: find unhealthy pods, container issues, nodes, storage, and batch workloads.**
+
+[`kubectl-audit`](https://github.com/codenio/kubectl-audit) is a [`kubectl` plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/) ([Krew](#install)) that surfaces resources failing common checks—**pods** that are not fully healthy (including high **restart counts** and bad phases such as **CrashLoopBackOff** or **ImagePullBackOff**), **containers** as individual rows (init and app, derived from pods), **nodes** that are **NotReady** or **cordoned** (**SchedulingDisabled**), **PersistentVolumes** (PV) and **PersistentVolumeClaims** (PVC) not **Bound**, **failed Jobs**, and **suspended CronJobs**. For most kinds, output matches [`kubectl get`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/) printers (default table, `-o wide`, JSON, YAML, custom columns, Go templates). The **containers** subcommand uses a dedicated table and supports `-o json`, `-o yaml`, `-o name`, default table, and `-o wide` (see [Output formats](#output-formats)).
+
+Use it for **Kubernetes troubleshooting**, **SRE / platform** triage, and **pre-deploy smoke checks** without leaving the CLI.
 
 ## Contents
 
+- [What it checks](#what-it-checks)
 - [Install](#install)
 - [Usage](#usage)
 - [Resources and filters](#resources-and-filters)
@@ -13,6 +18,16 @@
 - [Development](#development)
 - [Contributing](#contributing)
 - [Acknowledgments](#acknowledgments)
+
+## What it checks
+
+| Area | Plain-language intent |
+| ---- | ---------------------- |
+| **Pods** | Pods that are not in a good steady state or have risky restart behavior (see [Resources and filters](#resources-and-filters)). |
+| **Containers** | Per-container problems (waits, pull errors, readiness, high restarts) with optional filter by pod name. |
+| **Nodes** | Nodes you cannot schedule to or that are not ready. |
+| **Storage (PV / PVC)** | Volumes and claims stuck outside **Bound**. |
+| **Jobs / CronJobs** | Failed jobs and cron jobs that are **suspended**. |
 
 ## Install
 
