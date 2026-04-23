@@ -42,13 +42,13 @@ kubectl krew index add codenio https://github.com/codenio/codenio-krew-index.git
 kubectl krew install codenio/audit
 ```
 
-Upgrade when the index is updated:
+Upgrade when the index is updated (Krew accepts **only the short plugin name** here — not `codenio/audit`):
 
 ```bash
-kubectl krew upgrade codenio/audit
+kubectl krew upgrade audit
 ```
 
-If the local index name `codenio` is already taken, pick another name for `kubectl krew index add` and use that same prefix in `install` / `upgrade` (for example `codenio-krew/audit`). Maintainer notes for bumping versions live in the index repository.
+If the local index name `codenio` is already taken, pick another name for `kubectl krew index add` and use it in **install** only (for example `kubectl krew install codenio-krew/audit`). **Upgrade** stays `kubectl krew upgrade audit` regardless of which index you installed from. Maintainer notes for bumping versions live in the index repository.
 
 ### Krew (default index)
 
