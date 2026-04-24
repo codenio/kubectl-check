@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -20,13 +21,14 @@ import (
 )
 
 var auditGVR = map[string]schema.GroupVersionResource{
-	"pods":     {Group: "", Version: "v1", Resource: "pods"},
-	"nodes":    {Group: "", Version: "v1", Resource: "nodes"},
-	"pv":       {Group: "", Version: "v1", Resource: "persistentvolumes"},
-	"pvc":      {Group: "", Version: "v1", Resource: "persistentvolumeclaims"},
-	"jobs":     {Group: "batch", Version: "v1", Resource: "jobs"},
-	"cronjobs": {Group: "batch", Version: "v1", Resource: "cronjobs"},
-	"services": {Group: "", Version: "v1", Resource: "services"},
+	"pods":        {Group: "", Version: "v1", Resource: "pods"},
+	"nodes":       {Group: "", Version: "v1", Resource: "nodes"},
+	"pv":          {Group: "", Version: "v1", Resource: "persistentvolumes"},
+	"pvc":         {Group: "", Version: "v1", Resource: "persistentvolumeclaims"},
+	"jobs":        {Group: "batch", Version: "v1", Resource: "jobs"},
+	"cronjobs":    {Group: "batch", Version: "v1", Resource: "cronjobs"},
+	"services":    {Group: "", Version: "v1", Resource: "services"},
+	"deployments": {Group: "apps", Version: "v1", Resource: "deployments"},
 }
 
 func tableAcceptHeader() string {
@@ -105,7 +107,7 @@ func AsServerTableIfNeeded(cf *genericclioptions.ConfigFlags, resource string, o
 
 func auditNamespacedResource(resource string) bool {
 	switch resource {
-	case "pods", "pvc", "jobs", "cronjobs", "services":
+	case "pods", "pvc", "jobs", "cronjobs", "services", "deployments":
 		return true
 	default:
 		return false
@@ -210,6 +212,13 @@ func objectKeysForFilter(obj runtime.Object, resource string) (keys map[string]s
 		for _, s := range list.Items {
 			keys[s.Namespace+"/"+s.Name] = struct{}{}
 		}
+	case *appsv1.DeploymentList:
+		if len(list.Items) == 0 {
+			return keys, namespaced, true
+		}
+		for _, d := range list.Items {
+			keys[d.Namespace+"/"+d.Name] = struct{}{}
+		}
 	default:
 		return keys, namespaced, true
 	}
@@ -246,6 +255,8 @@ func fetchListAsTable(cs kubernetes.Interface, gvr schema.GroupVersionResource, 
 		restClient = cs.CoreV1().RESTClient()
 	case "batch":
 		restClient = cs.BatchV1().RESTClient()
+	case "apps":
+		restClient = cs.AppsV1().RESTClient()
 	default:
 		return nil, fmt.Errorf("unsupported API group %q", gvr.Group)
 	}

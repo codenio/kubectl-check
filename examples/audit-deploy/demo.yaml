@@ -1,0 +1,52 @@
+# Demo for `kubectl audit deploy` — one Deployment scaled to zero, one running.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubectl-audit-deploy-demo
+  labels:
+    demo: kubectl-audit-deploy
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubectl-audit-demo-idle
+  namespace: kubectl-audit-deploy-demo
+  labels:
+    demo: kubectl-audit-deploy
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: kubectl-audit-idle
+  template:
+    metadata:
+      labels:
+        app: kubectl-audit-idle
+        demo: kubectl-audit-deploy
+    spec:
+      containers:
+        - name: pause
+          image: docker.io/schoolofdevops/vote:v1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubectl-audit-demo-running
+  namespace: kubectl-audit-deploy-demo
+  labels:
+    demo: kubectl-audit-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubectl-audit-running
+  template:
+    metadata:
+      labels:
+        app: kubectl-audit-running
+        demo: kubectl-audit-deploy
+    spec:
+      containers:
+        - name: pause
+          image: docker.io/schoolofdevops/vote:v1

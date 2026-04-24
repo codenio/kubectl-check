@@ -1,8 +1,8 @@
 # kubectl-audit
 
-**Kubernetes `kubectl` plugin for cluster health: find unhealthy pods, container issues, nodes, storage, batch workloads, and Services with no backing Pods.**
+**Kubernetes `kubectl` plugin for cluster health: find unhealthy pods, container issues, nodes, storage, batch workloads, Services with no backing Pods, and Deployments scaled to zero.**
 
-[`kubectl-audit`](https://github.com/codenio/kubectl-audit) is a [`kubectl` plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/) ([Krew](#install)) that surfaces resources failing common checks—**pods** that are not fully healthy (including high **restart counts** and bad phases such as **CrashLoopBackOff** or **ImagePullBackOff**), **containers** as individual rows (init and app, derived from pods), **nodes** that are **NotReady** or **cordoned** (**SchedulingDisabled**), **PersistentVolumes** (PV) and **PersistentVolumeClaims** (PVC) not **Bound**, **failed Jobs**, **suspended CronJobs**, and **Services** whose **pod selector matches no Pods** in the same namespace (skipping **ExternalName** and empty selectors). For most kinds, output matches [`kubectl get`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/) printers (default table, `-o wide`, JSON, YAML, custom columns, Go templates). The **containers** subcommand uses a dedicated table and supports `-o json`, `-o yaml`, `-o name`, default table, and `-o wide` (see [Output formats](#output-formats)).
+[`kubectl-audit`](https://github.com/codenio/kubectl-audit) is a [`kubectl` plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/) ([Krew](#install)) that surfaces resources failing common checks—**pods** that are not fully healthy (including high **restart counts** and bad phases such as **CrashLoopBackOff** or **ImagePullBackOff**), **containers** as individual rows (init and app, derived from pods), **nodes** that are **NotReady** or **cordoned** (**SchedulingDisabled**), **PersistentVolumes** (PV) and **PersistentVolumeClaims** (PVC) not **Bound**, **failed Jobs**, **suspended CronJobs**, **Services** whose **pod selector matches no Pods** in the same namespace (skipping **ExternalName** and empty selectors), and **Deployments** with **`spec.replicas` set to 0**. For most kinds, output matches [`kubectl get`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/) printers (default table, `-o wide`, JSON, YAML, custom columns, Go templates). The **containers** subcommand uses a dedicated table and supports `-o json`, `-o yaml`, `-o name`, default table, and `-o wide` (see [Output formats](#output-formats)).
 
 Use it for **Kubernetes troubleshooting**, **SRE / platform** triage, and **pre-deploy smoke checks** without leaving the CLI.
 
@@ -30,6 +30,7 @@ Use it for **Kubernetes troubleshooting**, **SRE / platform** triage, and **pre-
 | **Storage (PV / PVC)** | Volumes and claims stuck outside **Bound**. |
 | **Jobs / CronJobs** | Failed jobs and cron jobs that are **suspended**. |
 | **Services** | Services with a **non-empty** pod **selector** and **no** matching **Pods** in that namespace (**ExternalName** and empty selectors are skipped). |
+| **Deployments** | Deployments whose **`spec.replicas`** is explicitly **0** (scaled to zero; `nil` replicas is treated as not in scope for this check). |
 
 ## Install
 
@@ -95,12 +96,13 @@ Standard `kubectl` config applies: current context, `KUBECONFIG`, `-n` / `--name
 | `jobs`       | `job`                                                     | Failed jobs (including backoff / deadline failures).                                                                                                                                                                                                                                  |
 | `cronjobs`   | `cronjob`, `cj`                                           | Suspended cron jobs.                                                                                                                                                                                                                                                                  |
 | `service`    | `services`, `svc`                                         | Services whose **selector** matches **no Pods** in the namespace (**ExternalName** and empty **selector** are out of scope for this check). The audit **`-l` / `--selector`** filters **Services** only; Pod matching uses all Pods in each namespace.                               |
+| `deploy`     | `deployment`, `deployments`                               | Deployments with **`spec.replicas: 0`** (scaled to zero).                                                                                                                                                                                                                            |
 
 
 **Common flags**
 
-- **All namespaces:** `-A` or `--all-namespaces` for namespaced targets (`containers`, `pods`, `pvc`, `jobs`, `cronjobs`, `service`).
-- **Labels:** `-l` / `--selector` (same semantics as `kubectl get`; applies to the underlying pod list for `containers`, and to the **Service** list for `kubectl audit service`).
+- **All namespaces:** `-A` or `--all-namespaces` for namespaced targets (`containers`, `pods`, `pvc`, `jobs`, `cronjobs`, `service`, `deploy`).
+- **Labels:** `-l` / `--selector` (same semantics as `kubectl get`; applies to the underlying pod list for `containers`, to the **Service** list for `kubectl audit service`, and to the **Deployment** list for `kubectl audit deploy`).
 
 There are no `--pending` / `--failed` style switches: one `kubectl audit pods` run applies all pod rules above; `kubectl audit containers` applies per-container rules.
 
@@ -108,7 +110,7 @@ Further notes live in [doc/USAGE.md](doc/USAGE.md).
 
 ## Output formats
 
-For **pods**, **nodes**, **pv**, **pvc**, **jobs**, **cronjobs**, and **service**, [`kubectl get`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/)-style `-o` flags work as usual, for example:
+For **pods**, **nodes**, **pv**, **pvc**, **jobs**, **cronjobs**, **service**, and **deploy**, [`kubectl get`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/)-style `-o` flags work as usual, for example:
 
 ```bash
 kubectl audit pods -o wide
@@ -156,6 +158,10 @@ kubectl audit service
 kubectl audit svc -A
 kubectl audit service -n my-namespace -l app=myapp
 
+# Deployments: spec.replicas 0 (scaled to zero)
+kubectl audit deploy
+kubectl audit deploy -A
+
 # Portable demo YAML per audit: see examples/README.md and examples/audit-*/
 
 ```
@@ -171,6 +177,7 @@ Each subfolder under [`examples/`](examples/README.md) has a **`demo.yaml`** plu
 | [`examples/audit-job/`](examples/audit-job/README.md) | `jobs` |
 | [`examples/audit-cronjob/`](examples/audit-cronjob/README.md) | `cronjobs` |
 | [`examples/audit-svc/`](examples/audit-svc/README.md) | `service` |
+| [`examples/audit-deploy/`](examples/audit-deploy/README.md) | `deploy` |
 | [`examples/audit-pvc/`](examples/audit-pvc/README.md) | `pvc` |
 | [`examples/audit-pv/`](examples/audit-pv/README.md) | `pv` |
 

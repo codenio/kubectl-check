@@ -49,11 +49,7 @@ func AuditServices(configFlags *genericclioptions.ConfigFlags, o AuditOptions) (
 	filtered := make([]corev1.Service, 0)
 	for i := range svcs.Items {
 		svc := svcs.Items[i]
-		if svc.Spec.Type == corev1.ServiceTypeExternalName {
-			benignInScope++
-			continue
-		}
-		if len(svc.Spec.Selector) == 0 {
+		if serviceExemptFromPodSelectorAudit(svc) {
 			benignInScope++
 			continue
 		}
@@ -66,6 +62,12 @@ func AuditServices(configFlags *genericclioptions.ConfigFlags, o AuditOptions) (
 		filtered = append(filtered, svc)
 	}
 	return &corev1.ServiceList{Items: filtered}, totalInScope, benignInScope, nil
+}
+
+// serviceExemptFromPodSelectorAudit is true for ExternalName and empty-selector Services (no
+// pod-based selector expectation for this audit).
+func serviceExemptFromPodSelectorAudit(svc corev1.Service) bool {
+	return svc.Spec.Type == corev1.ServiceTypeExternalName || len(svc.Spec.Selector) == 0
 }
 
 func groupPodsByNamespace(pods []corev1.Pod) map[string][]corev1.Pod {
